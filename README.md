@@ -30,5 +30,9 @@ Unregister-ScheduledTask -TaskName hdr-auto-toggle -Confirm:$false
 ## 메모
 
 - Windows 11 24H2부터 HDR과 WCG가 분리됐다. 먼저 `DISPLAYCONFIG_DEVICE_INFO_SET_HDR_STATE`(16)로 시도하고, 실패하면 `SET_ADVANCED_COLOR_STATE`(10)로 넘어간다. 상태는 `GET_ADVANCED_COLOR_INFO_2`(15)의 `activeColorMode == 2`로 판단한다.
+- 게임은 창이 있을 때만 실행 중으로 친다. 최소화한 창은 포함하고, 창을 닫은 뒤 남은 프로세스(로블록스가 그렇다)는 제외한다.
+- 게임 창이 사라져도 5초 동안은 기다렸다가 끈다. 전체 화면 모드를 바꿀 때 창이 다시 만들어지면서 HDR이 깜빡이는 것을 막는다.
+- 최소화나 Alt+Tab으로는 끄지 않는다. 게임 도중 HDR을 바꾸면 게임에 따라 화면이 깨지거나 HDR 출력이 풀린다.
 - 게임을 켤 때 HDR이 이미 켜져 있었다면 건드리지 않고, 게임이 끝나도 끄지 않는다.
+- watch가 HDR을 켜면 `hdr-owned.flag`를 남긴다. 게임 도중 PC가 꺼져도, 다음에 watch가 시작될 때 게임 창이 없으면 이 파일을 보고 HDR을 끈다.
 - `.ps1` 파일에는 ASCII만 쓴다. Windows PowerShell 5.1은 BOM이 없는 파일을 ANSI로 읽는다.

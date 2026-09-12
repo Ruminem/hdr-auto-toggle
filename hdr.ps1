@@ -1,13 +1,17 @@
-# hdr.ps1 - turn HDR on/off, or toggle it automatically while a game runs.
+# hdr.ps1 - turn HDR on/off, or toggle it automatically while a game window is open.
 #   hdr.ps1 status | on | off
-#   hdr.ps1 watch [-GamesFile games.txt] [-LogFile watch.log]
+#   hdr.ps1 watch [-GamesFile games.txt] [-LogFile watch.log] [-StateFile hdr-owned.flag]
 # Keep this file ASCII-only: Windows PowerShell 5.1 reads BOM-less scripts as ANSI.
 param(
     [ValidateSet('status', 'on', 'off', 'watch')]
     [string]$Command = 'status',
     [string]$GamesFile = (Join-Path $PSScriptRoot 'games.txt'),
     [string]$LogFile = (Join-Path $PSScriptRoot 'watch.log'),
-    [int]$IntervalSeconds = 2
+    # Exists while HDR is on because watch turned it on, so a later run can still turn it off.
+    [string]$StateFile = (Join-Path $PSScriptRoot 'hdr-owned.flag'),
+    [int]$IntervalSeconds = 2,
+    # How long no game window must be seen before HDR goes off; rides out window re-creation.
+    [int]$OffDelaySeconds = 5
 )
 
 $ErrorActionPreference = 'Stop'
@@ -178,6 +182,16 @@ function Read-Games([string]$Path) {
         ForEach-Object { $_ -replace '\.exe$', '' }
 }
 
+# A process only counts while it has a window. Minimized windows still count;
+# a process left behind after its window closed (Roblox does this) does not.
+function Get-RunningGames([string[]]$Names) {
+    Get-Process -Name $Names -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 }
+}
+
+function Test-HdrOn {
+    @(Get-HdrDisplays | Where-Object { $_.HdrOn }).Count -gt 0
+}
+
 switch ($Command) {
     'status' {
         foreach ($d in [HdrToggle.Native]::GetDisplays()) {
@@ -195,18 +209,25 @@ switch ($Command) {
         Write-Log ('watching {0} game(s): {1}' -f $games.Count, ($games -join ', '))
 
         # Only undo what we did: if HDR was already on when a game started, leave it on afterwards.
-        $weTurnedOn = $false
+        # The state file carries that across restarts, e.g. a shutdown in the middle of a game.
+        $weTurnedOn = Test-Path $StateFile
+        if ($weTurnedOn) { Write-Log 'state file found: an earlier run left HDR on' }
+        $lastGameSeen = [datetime]::MinValue
+
         while ($true) {
-            $running = @(Get-Process -Name $games -ErrorAction SilentlyContinue)
-            if ($running.Count -gt 0 -and -not $weTurnedOn) {
-                if (@(Get-HdrDisplays | Where-Object { $_.HdrOn }).Count -eq 0) {
-                    Write-Log ('{0} started, HDR on' -f $running[0].ProcessName)
+            $running = @(Get-RunningGames $games)
+            if ($running.Count -gt 0) {
+                $lastGameSeen = Get-Date
+                if (-not $weTurnedOn -and -not (Test-HdrOn)) {
+                    Write-Log ('{0} window open, HDR on' -f $running[0].ProcessName)
                     Set-Hdr $true
+                    Set-Content -Path $StateFile -Value (Get-Date -Format s)
                     $weTurnedOn = $true
                 }
-            } elseif ($running.Count -eq 0 -and $weTurnedOn) {
-                Write-Log 'all games closed, HDR off'
+            } elseif ($weTurnedOn -and ((Get-Date) - $lastGameSeen).TotalSeconds -ge $OffDelaySeconds) {
+                Write-Log ('no game window for {0}s, HDR off' -f $OffDelaySeconds)
                 Set-Hdr $false
+                Remove-Item -Path $StateFile -ErrorAction SilentlyContinue
                 $weTurnedOn = $false
             }
             Start-Sleep -Seconds $IntervalSeconds
