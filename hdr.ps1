@@ -73,12 +73,14 @@ public static class Native {
     [StructLayout(LayoutKind.Sequential)]
     struct SET_STATE { public HEADER header; public uint value; }
 
+    // monitorDevicePath is WCHAR[128], not MAX_PATH: the whole struct is 420 bytes, and any other
+    // header.size makes DisplayConfigGetDeviceInfo fail with ERROR_INVALID_PARAMETER (87).
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     struct TARGET_NAME {
         public HEADER header; public uint flags; public uint outputTechnology;
         public ushort edidManufactureId; public ushort edidProductCodeId; public uint connectorInstance;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)] public string monitorFriendlyDeviceName;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string monitorDevicePath;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string monitorDevicePath;
     }
 
     [DllImport("user32.dll")] static extern int GetDisplayConfigBufferSizes(uint flags, out uint numPaths, out uint numModes);
