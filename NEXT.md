@@ -1,0 +1,3 @@
+- 여기까지 됨: `hdr.ps1 status/on/off/watch` 동작 확인. PING을 게임 대신 써서 켜짐/꺼짐 로그와 실제 상태가 일치했다.
+- 다음 할 것: `install-task.ps1`로 로그온 작업을 등록하고, 실제 게임 하나(DJMAX 등)로 확인한다.
+- 막힌 것: 모니터 이름 조회(`GET_TARGET_NAME`)가 실패해서 `target <id>`로 나온다. 동작에는 영향이 없다.
